@@ -1,0 +1,45 @@
+import gurobipy as gp
+from gurobipy import GRB
+import numpy as np
+
+try:
+    # Create a new model
+    m = gp.Model("Pizzeria")
+
+    # Create the set of objects we are working with
+    Days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+    Shifts = ['shift-' + d for d in Days]
+
+    # Create continuous decision variable for number of workers required for given day
+    x = m.addVars(len(Shifts), lb = [0.0] * len(Shifts), name = Shifts)
+ 
+    # Set objective number of workers
+    m.setObjective(gp.quicksum(x[s] for s in range(len(Shifts))), GRB.MINIMIZE)
+
+    # Add constraints for the minimal workers required
+    A = np.array([[2,2,2,2,0,0,0],
+         [0,2,2,2,2,0,0],
+         [0,0,2,2,2,2,0],
+         [0,0,0,2,2,2,2],
+         [2,0,0,0,2,2,2],
+         [2,2,0,0,0,2,2],
+         [2,2,2,0,0,0,2]]) # Data
+    b = [1,1,1,1,0,0,0]   # Some simple case, you really try different data to test your model!
+    m.addConstrs(gp.quicksum(A[s,d] * x[s] for s in range(len(Shifts))) >= b[d] for d in range(len(Days)))
+
+    # Optimize model
+    m.optimize()
+
+    # Display the decision and its objective value
+    xnp = np.zeros(len(Shifts))
+    for i in range(len(Shifts)):
+        xnp[i] = x[i].X
+    print(xnp)
+    print("number of workers per day:", A.T@xnp)
+    print('Obj: %g' % m.objVal)
+
+except gp.GurobiError as e:
+    print('Error code ' + str(e.errno) + ': ' + str(e))
+
+except AttributeError:
+    print('Encountered an attribute error')
